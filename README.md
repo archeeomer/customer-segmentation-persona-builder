@@ -26,6 +26,9 @@ Public Marketing Analytics dataset from Kaggle (ifood_df.csv), 2,205 customers.
 - Standardised Income, Spend and Frequency, then clustered with K-Means
 - Chose k = 3 using elbow and silhouette analysis. Silhouette was highest at k = 2 (about 0.57), but that only splits customers into high and low value, so k = 3 (silhouette 0.45) gives more actionable segments
 - Gemini API generates a persona and campaign ideas for each segment
+- RFM tiers: customers scored 1-5 on Recency, Frequency and Monetary value, then labelled Champions, Loyal, Promising, At Risk or Needs Attention
+- Customer lookup: predicts which segment a new customer would belong to
+- Tabbed layout with automatic key takeaways and CSV export
 
 ## Key insights
 1. Premium Big Spenders are 30.9% of customers but about 70% of total spend (average spend 1,378 vs 81 for the lowest segment).
