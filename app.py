@@ -40,7 +40,8 @@ df["PC1"], df["PC2"] = coords[:, 0], coords[:, 1]
 st.plotly_chart(px.scatter(df, x="PC1", y="PC2", color="Segment",
                 title="Segment map (PCA view)"), use_container_width=True)
 
-profile = df.groupby("Segment")[feats + ["Spend"]].mean().round(1)
+cols = list(dict.fromkeys(feats + ["Spend"]))
+profile = df.groupby("Segment")[cols].mean().round(1)
 profile["Size"] = df["Segment"].value_counts()
 profile["Share %"] = (profile["Size"] / len(df) * 100).round(1)
 st.subheader("Segment profiles")
