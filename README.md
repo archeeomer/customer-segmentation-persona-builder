@@ -2,7 +2,9 @@
 
 Interactive dashboard that groups customers into segments and generates AI marketing personas.
 
-**Live app:**[Open the dashboard](https://customer-segmentation-persona-builder-eqbbt7cukhps9jtgrmsm7l.streamlit.app/)
+### 🚀 Live Demo
+
+[**▶ Open the Live Dashboard**](https://customer-segmentation-persona-builder-eqbbt7cukhps9jtgrmsm71.streamlit.app/)
 
 ## Screenshots
 
