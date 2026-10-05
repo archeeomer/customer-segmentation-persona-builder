@@ -8,6 +8,8 @@ from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score
 
+px.defaults.color_discrete_sequence = ["#F5B800", "#10B981", "#6C63FF", "#F472B6", "#22D3EE", "#F97316"]
+
 st.set_page_config(page_title="Customer Persona Builder", layout="wide")
 st.markdown("""
 <style>
