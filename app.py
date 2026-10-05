@@ -113,7 +113,21 @@ Dataset averages for comparison: {avg.round(1).to_dict()}.
 Create: 1) a persona name and one-line description, 2) motivations and pain points,
 3) best channels, 4) three campaign ideas, 5) one risk. Use only the numbers provided;
 do not invent data. Keep it under 200 words, in bullets."""
-            out = client.models.generate_content(model="gemini-flash-latest", contents=prompt)
-            st.markdown(out.text)
+                        import time
+            text = None
+            for model_name in ["gemini-flash-latest", "gemini-flash-lite-latest"]:
+                for attempt in range(3):
+                    try:
+                        out = client.models.generate_content(model=model_name, contents=prompt)
+                        text = out.text
+                        break
+                    except Exception:
+                        time.sleep(2 * (attempt + 1))
+                if text:
+                    break
+            if text:
+                st.markdown(text)
+            else:
+                st.warning("Gemini is busy right now. Please try again in a few minutes.")
         except Exception as e:
             st.error(f"Gemini error: {e}")
