@@ -95,7 +95,6 @@ with st.expander("How to choose k (elbow and silhouette)"):
                     labels={"x": "k", "y": "Inertia"}, title="Elbow curve"))
     st.plotly_chart(px.line(x=ks, y=sils, markers=True,
                     labels={"x": "k", "y": "Silhouette"}, title="Silhouette score by k"))
-
 st.subheader("AI persona builder")
 key = st.sidebar.text_input("Gemini API key", type="password")
 seg = st.selectbox("Choose a segment", profile.index.tolist())
@@ -104,30 +103,30 @@ if st.button("Generate persona"):
     if not key:
         st.info("Add a Gemini API key in the sidebar first.")
     else:
-        try:
-            from google import genai
-            client = genai.Client(api_key=key)
-            stats = profile.loc[seg].drop(["Name", "Recommendation"]).to_dict()
-            prompt = f"""You are a senior marketing strategist. Segment averages: {stats}.
+        import time
+        from google import genai
+        client = genai.Client(api_key=key.strip())
+        stats = profile.loc[seg].drop(["Name", "Recommendation"]).to_dict()
+        prompt = f"""You are a senior marketing strategist. Segment averages: {stats}.
 Dataset averages for comparison: {avg.round(1).to_dict()}.
 Create: 1) a persona name and one-line description, 2) motivations and pain points,
 3) best channels, 4) three campaign ideas, 5) one risk. Use only the numbers provided;
 do not invent data. Keep it under 200 words, in bullets."""
-                        import time
-            text = None
-            for model_name in ["gemini-flash-latest", "gemini-flash-lite-latest"]:
-                for attempt in range(3):
-                    try:
-                        out = client.models.generate_content(model=model_name, contents=prompt)
-                        text = out.text
-                        break
-                    except Exception:
-                        time.sleep(2 * (attempt + 1))
-                if text:
+        text = None
+        last_error = ""
+        for model_name in ["gemini-flash-latest", "gemini-flash-lite-latest"]:
+            for attempt in range(3):
+                try:
+                    out = client.models.generate_content(model=model_name, contents=prompt)
+                    text = out.text
                     break
+                except Exception as e:
+                    last_error = str(e)
+                    time.sleep(2 * (attempt + 1))
             if text:
-                st.markdown(text)
-            else:
-                st.warning("Gemini is busy right now. Please try again in a few minutes.")
-        except Exception as e:
-            st.error(f"Gemini error: {e}")
+                break
+        if text:
+            st.markdown(text)
+        else:
+            st.warning("Gemini is busy right now. Please try again in a few minutes.")
+            st.caption(last_error[:200])
