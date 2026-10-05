@@ -5,8 +5,16 @@ Interactive dashboard that groups customers into segments and generates AI marke
 <h3>🚀 Live Demo</h3>
 
 <p>
-  <a href="https://customer-segmentation-persona-builder-eqbbt7cukhps9jtgrmsm71.streamlit.app/" target="_blank"
-     style="display:inline-block;padding:12px 22px;background:#0969da;color:white;text-decoration:none;border-radius:8px;font-weight:bold;">
+  <a href="[https://customer-segmentation-persona-builder-eqbbt7cukhps9jtgrmsm71.streamlit.app/](https://customer-segmentation-persona-builder-eqbbt7cukhps9jtgrmsm7l.streamlit.app/)"
+     target="_blank"
+     style="display:inline-block;
+            padding:12px 24px;
+            background:#0969da;
+            color:white;
+            text-decoration:none;
+            border-radius:999px;
+            font-weight:600;
+            font-size:16px;">
     ▶ Launch Interactive Dashboard
   </a>
 </p>
