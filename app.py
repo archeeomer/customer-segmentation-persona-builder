@@ -9,6 +9,21 @@ from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score
 
 st.set_page_config(page_title="Customer Persona Builder", layout="wide")
+st.markdown("""
+<style>
+.stApp { background: linear-gradient(135deg, #FFF9E0 0%, #FFE98A 100%); }
+[data-testid="stSidebar"] { background-color: #FFFFFF; border-radius: 0 24px 24px 0; }
+[data-testid="stMetric"] {
+    background-color: #FFFFFF; border-radius: 16px; padding: 16px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.07);
+}
+[data-testid="stPlotlyChart"], [data-testid="stDataFrame"] {
+    background-color: #FFFFFF; border-radius: 16px; padding: 12px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.07);
+}
+.block-container { padding-top: 2rem; }
+</style>
+""", unsafe_allow_html=True)
 st.title("Customer Segmentation and Persona Builder")
 st.caption("Group customers by behaviour, see who matters most, and get AI-written marketing personas.")
 
