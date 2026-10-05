@@ -133,10 +133,11 @@ with tab1:
             "2. Read the key takeaways below.\n"
             "3. Open the other tabs for details, RFM tiers, lookup of a new customer and AI personas."
         )
-    c1, c2, c3 = st.columns(3)
+        c1, c2, c3, c4 = st.columns(4)
     c1.metric("Customers", f"{len(df):,}")
     c2.metric("Segments", k)
     c3.metric("Silhouette score", f"{sil:.2f}", help="Higher means cleaner, more separate segments. Above 0.4 is decent.")
+    c4.metric("Average spend", f"{df['Spend'].mean():,.0f}")
 
     seg_spend = df.groupby("Segment")["Spend"].sum()
     spend_share = (seg_spend / seg_spend.sum() * 100).round(0)
