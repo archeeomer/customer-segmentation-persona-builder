@@ -1,5 +1,6 @@
 import re
 import time
+from html import escape as esc
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -9,31 +10,84 @@ from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score
 
-st.set_page_config(page_title="Customer Persona Builder", layout="wide")
+st.set_page_config(page_title="Customer Persona Builder", page_icon="📊", layout="wide")
+
+PAL = ["#4F46E5", "#F5B800", "#10B981", "#F472B6", "#22D3EE", "#F97316", "#8B5CF6", "#64748B"]
+px.defaults.color_discrete_sequence = PAL
+
 st.markdown("""
 <style>
-.stApp { background: linear-gradient(135deg, #FFF9E0 0%, #FFE98A 100%); }
-[data-testid="stSidebar"] { background-color: #FFFFFF; border-radius: 0 24px 24px 0; }
-[data-testid="stMetric"] {
-    background-color: #FFFFFF; border-radius: 16px; padding: 16px;
-    box-shadow: 0 4px 14px rgba(0,0,0,0.07);
-}
-[data-testid="stPlotlyChart"], [data-testid="stDataFrame"] {
-    background-color: #FFFFFF; border-radius: 16px; padding: 12px;
-    box-shadow: 0 4px 14px rgba(0,0,0,0.07);
-}
-.block-container { padding-top: 2rem; }
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+html, body, .stApp, [data-testid="stSidebar"] { font-family: 'Inter', sans-serif; }
+.stApp { background: #F5F6FA; }
+#MainMenu, footer { visibility: hidden; }
+.block-container { padding-top: 1.5rem; max-width: 1280px; }
+[data-testid="stSidebar"] { background: #FFFFFF; border-right: 1px solid #E7E9F0; }
+.hero { background: linear-gradient(120deg, #1E1B4B 0%, #4F46E5 100%); border-radius: 20px;
+        padding: 28px 32px; margin-bottom: 14px; }
+.hero-t { color: #FFFFFF; font-size: 28px; font-weight: 700; letter-spacing: -0.3px; }
+.hero-s { color: #E0E7FF; font-size: 15px; margin-top: 6px; }
+.hero-bar { width: 56px; height: 4px; background: #F5B800; border-radius: 4px; margin-bottom: 12px; }
+.chip { display: inline-block; background: #FFFFFF; border: 1px solid #E7E9F0; color: #334155;
+        border-radius: 999px; padding: 4px 12px; font-size: 12.5px; margin: 0 8px 8px 0; }
+.kpi { background: #FFFFFF; border-radius: 16px; padding: 16px 18px; border: 1px solid #E7E9F0;
+       box-shadow: 0 2px 10px rgba(15,23,42,0.05); }
+.kpi-l { color: #64748B; font-size: 12.5px; font-weight: 500; text-transform: uppercase; letter-spacing: .4px; }
+.kpi-v { color: #0F172A; font-size: 30px; font-weight: 700; margin-top: 2px; }
+.kpi-s { color: #64748B; font-size: 12.5px; }
+.ins { background: #FFFFFF; border-radius: 16px; padding: 18px; border: 1px solid #E7E9F0;
+       box-shadow: 0 2px 10px rgba(15,23,42,0.05); height: 100%; }
+.ins-b { color: #4F46E5; font-size: 32px; font-weight: 700; }
+.ins-t { color: #334155; font-size: 14px; margin-top: 4px; line-height: 1.45; }
+.seg { background: #FFFFFF; border-radius: 16px; padding: 16px 18px; border: 1px solid #E7E9F0;
+       box-shadow: 0 2px 10px rgba(15,23,42,0.05); margin-bottom: 14px; min-height: 190px; }
+.seg-n { color: #0F172A; font-size: 15px; font-weight: 600; }
+.seg-m { color: #64748B; font-size: 12.5px; margin: 4px 0 8px 0; }
+.seg-k { color: #334155; font-size: 13px; line-height: 1.6; }
+.seg-r { color: #334155; font-size: 13px; background: #F5F6FA; border-radius: 10px; padding: 8px 10px; margin-top: 10px; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; }
+[class*="st-key-card_"] { background: #FFFFFF; border-radius: 16px; padding: 16px 18px;
+       border: 1px solid #E7E9F0; box-shadow: 0 2px 10px rgba(15,23,42,0.05); margin-bottom: 14px; }
+.stTabs [data-baseweb="tab-list"] { gap: 6px; border-bottom: none; }
+.stTabs [data-baseweb="tab"] { background: #FFFFFF; border-radius: 10px; padding: 8px 16px;
+       border: 1px solid #E7E9F0; height: auto; }
+.stTabs [aria-selected="true"] { background: #4F46E5; color: #FFFFFF; border-color: #4F46E5; }
+.stTabs [aria-selected="true"] p { color: #FFFFFF; }
+.stTabs [data-baseweb="tab-highlight"], .stTabs [data-baseweb="tab-border"] { display: none; }
+h2, h3 { color: #0F172A; letter-spacing: -0.2px; }
 </style>
 """, unsafe_allow_html=True)
-px.defaults.color_discrete_sequence = ["#F5B800", "#10B981", "#6C63FF", "#F472B6", "#22D3EE", "#F97316"]
-
-st.title("Customer Segmentation and Persona Builder")
-st.caption("Upload any customer CSV, match a few columns, and get segments, RFM tiers and AI personas.")
 
 NONE = "(none)"
 SUM_MNT = "Sum of all Mnt* columns"
 SUM_NUM = "Sum of Num* purchase columns"
 MAX_ROWS = 50000
+_c = [0]
+
+def card():
+    _c[0] += 1
+    return st.container(key=f"card_{_c[0]}")
+
+def style(fig, h=380):
+    fig.update_layout(height=h, margin=dict(l=10, r=10, t=50, b=10), paper_bgcolor="white", plot_bgcolor="white",
+                      font=dict(family="Inter, Arial, sans-serif", color="#0F172A", size=13),
+                      legend=dict(orientation="h", y=-0.25, x=0, title_text=""),
+                      xaxis=dict(gridcolor="#EEF0F5", zeroline=False),
+                      yaxis=dict(gridcolor="#EEF0F5", zeroline=False))
+    fig.update_layout(title=dict(font=dict(size=16)))
+    return fig
+
+def show(fig, where=st, h=380):
+    where.plotly_chart(style(fig, h), theme=None)
+
+def kpi(col, label, value, sub="", accent="#4F46E5"):
+    col.markdown(f'<div class="kpi" style="border-top:4px solid {accent}"><div class="kpi-l">{esc(str(label))}</div>'
+                 f'<div class="kpi-v">{esc(str(value))}</div><div class="kpi-s">{esc(str(sub))}</div></div>',
+                 unsafe_allow_html=True)
+
+def insight(col, big, text):
+    col.markdown(f'<div class="ins"><div class="ins-b">{esc(str(big))}</div><div class="ins-t">{esc(str(text))}</div></div>',
+                 unsafe_allow_html=True)
 
 def read_any(f):
     last = None
@@ -61,16 +115,26 @@ def clean_numeric(d):
 def is_id_like(name):
     return bool(re.search(r"(^|[^a-z])id($|[^a-z])|^unnamed|index", name.lower()))
 
-def guess(cols, keywords, binary_only=None):
+def guess(cols, keywords):
     for kw in keywords:
         for c in cols:
             if kw in c.lower():
                 return c
     return None
 
+def sil_score(X, labels):
+    if len(X) > 5000:
+        return silhouette_score(X, labels, sample_size=5000, random_state=42)
+    return silhouette_score(X, labels)
+
 @st.cache_data
 def load_sample(path):
     return pd.read_csv(path)
+
+@st.cache_data
+def cluster(X, k):
+    km = KMeans(n_clusters=k, n_init=10, random_state=42).fit(X)
+    return km.labels_, km.cluster_centers_, sil_score(X, km.labels_)
 
 @st.cache_data
 def k_scores(X):
@@ -82,10 +146,12 @@ def k_scores(X):
         sils.append(sil_score(X, m.labels_))
     return ks, inertia, sils
 
-def sil_score(X, labels):
-    if len(X) > 5000:
-        return silhouette_score(X, labels, sample_size=5000, random_state=42)
-    return silhouette_score(X, labels)
+@st.cache_data
+def pca_coords(X):
+    return PCA(n_components=2, random_state=42).fit_transform(X)
+
+def quality(s):
+    return "Strong" if s >= 0.5 else "Good" if s >= 0.35 else "Fair" if s >= 0.25 else "Weak"
 
 def score_5(series, higher_is_better=True):
     s = series if higher_is_better else -series
@@ -102,9 +168,14 @@ def rfm_tier(r, fm):
         return "At Risk"
     return "Needs Attention"
 
-st.sidebar.header("1. Data")
-up = st.sidebar.file_uploader("Upload your own customer CSV (optional)", type="csv",
-                              help="One row per customer. Any column names work; you can match them below.")
+st.markdown('<div class="hero"><div class="hero-bar"></div><div class="hero-t">Customer Segmentation and Persona Builder</div>'
+            '<div class="hero-s">Turn any customer file into segments, RFM tiers and AI-written marketing personas.</div></div>',
+            unsafe_allow_html=True)
+
+st.sidebar.markdown("### Setup")
+st.sidebar.markdown("**1. Data**")
+up = st.sidebar.file_uploader("Upload a customer CSV", type="csv",
+                              help="One row per customer. Any column names work. Leave empty to use the sample data.")
 try:
     raw = read_any(up) if up else load_sample("data/ifood_df.csv")
 except Exception:
@@ -179,7 +250,7 @@ if len(role_feats) < 2:
     cont = [c for c in feat_options if df[c].nunique() > 10]
     role_feats = (cont or feat_options)[:4]
 
-st.sidebar.header("3. Grouping")
+st.sidebar.markdown("**3. Grouping**")
 preset = st.sidebar.radio("Group customers by", ["Recommended columns", "All numeric columns"])
 feats = role_feats if preset == "Recommended columns" else feat_options[:12]
 with st.sidebar.expander("Advanced: choose features yourself"):
@@ -188,7 +259,8 @@ with st.sidebar.expander("Advanced: choose features yourself"):
         feats = custom
 k = st.sidebar.slider("Number of segments (k)", 2, 8, 3,
                       help="3 is a good starting point. See the Segments tab for how to choose.")
-key = st.sidebar.text_input("Gemini API key (for AI personas)", type="password")
+st.sidebar.markdown("**4. AI (optional)**")
+key = st.sidebar.text_input("Gemini API key", type="password", help="Free key from Google AI Studio.")
 
 if len(feats) < 2:
     st.warning("Select at least 2 features.")
@@ -200,9 +272,8 @@ if len(df) <= k:
 Xraw = df[feats].fillna(df[feats].median())
 scaler = StandardScaler().fit(Xraw)
 X = scaler.transform(Xraw)
-km = KMeans(n_clusters=k, n_init=10, random_state=42).fit(X)
-df["Segment"] = km.labels_.astype(str)
-sil = sil_score(X, km.labels_)
+labels, centers, sil = cluster(X, k)
+df["Segment"] = labels.astype(str)
 
 extra = [c for c in ["Spend", "Frequency", "Income", "Recency_"] if c in df.columns]
 cols = list(dict.fromkeys(feats + extra))
@@ -233,77 +304,99 @@ names = {i: name_segment(i) for i in profile.index}
 profile.insert(0, "Name", [f"Segment {i}: {names[i][0]}" for i in profile.index])
 profile["Recommendation"] = [names[i][1] for i in profile.index]
 df["Segment Name"] = df["Segment"].map(lambda s: profile.loc[s, "Name"])
+seg_color = {n: PAL[j % len(PAL)] for j, n in enumerate(profile["Name"])}
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(
-    ["Overview", "Segments", "RFM Tiers", "Customer Lookup", "AI Personas"])
+source = esc(up.name) if up else "Sample dataset (iFood-style)"
+st.markdown(f'<span class="chip">Data: {source}</span><span class="chip">{len(df):,} customers</span>'
+            f'<span class="chip">{len(feats)} grouping features</span><span class="chip">{k} segments</span>',
+            unsafe_allow_html=True)
+
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview", "Segments", "RFM Tiers", "Customer Lookup", "AI Personas"])
 
 with tab1:
-    with st.expander("How to use this dashboard", expanded=False):
-        st.markdown(
-            "1. Upload a customer CSV in the sidebar, or use the sample data.\n"
-            "2. Check the column matching, then pick how to group customers.\n"
-            "3. Read the takeaways, then explore the other tabs."
-        )
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Customers", f"{len(df):,}")
-    c2.metric("Segments", k)
-    c3.metric("Silhouette score", f"{sil:.2f}", help="Higher means cleaner, more separate segments. Above 0.4 is decent.")
+    k1, k2, k3, k4 = st.columns(4)
+    kpi(k1, "Customers", f"{len(df):,}", "rows analysed", "#4F46E5")
+    kpi(k2, "Segments", k, "groups found", "#F5B800")
+    kpi(k3, "Cluster quality", f"{sil:.2f}", f"{quality(sil)} separation", "#10B981")
     if has_spend:
-        c4.metric("Average spend", f"{df['Spend'].mean():,.0f}")
+        kpi(k4, "Average spend", f"{df['Spend'].mean():,.0f}", "per customer", "#F472B6")
     else:
-        c4.metric("Features used", len(feats))
+        kpi(k4, "Features used", len(feats), "for grouping", "#F472B6")
+    st.write("")
 
-    st.subheader("Key takeaways")
     big = profile["Size"].idxmax()
+    i1, i2, i3 = st.columns(3)
     if has_spend:
         seg_spend = df.groupby("Segment")["Spend"].sum()
         spend_share = (seg_spend / seg_spend.sum() * 100).round(0)
         top = spend_share.idxmax()
-        st.markdown(
-            f"- **{profile.loc[top, 'Name']}** is {profile.loc[top, 'Share %']}% of customers but about "
-            f"{int(spend_share[top])}% of total spend.\n"
-            f"- The largest group is **{profile.loc[big, 'Name']}** ({profile.loc[big, 'Share %']}% of customers), "
-            f"contributing about {int(spend_share[big])}% of spend.\n"
-            f"- Average spend ranges from {profile['Spend'].min():,.0f} to {profile['Spend'].max():,.0f} across segments."
-        )
+        insight(i1, f"{int(spend_share[top])}% of spend",
+                f"comes from {profile.loc[top, 'Name']}, only {profile.loc[top, 'Share %']}% of customers.")
+        insight(i2, f"{profile.loc[big, 'Share %']}% of customers",
+                f"are in the largest group, {profile.loc[big, 'Name']}, which brings about {int(spend_share[big])}% of spend.")
+        lo, hi = profile["Spend"].min(), profile["Spend"].max()
+        insight(i3, f"{hi / lo:.0f}x gap" if lo > 0 else f"{hi:,.0f} top",
+                f"between the highest and lowest average spend ({hi:,.0f} vs {lo:,.0f}).")
     else:
         small = profile["Size"].idxmin()
-        st.markdown(
-            f"- The largest group is **{profile.loc[big, 'Name']}** ({profile.loc[big, 'Share %']}% of customers).\n"
-            f"- The smallest group is **{profile.loc[small, 'Name']}** ({profile.loc[small, 'Share %']}% of customers).\n"
-            "- Match a spend column in the sidebar to unlock spend-based insights."
-        )
+        insight(i1, f"{profile.loc[big, 'Share %']}%", f"of customers are in {profile.loc[big, 'Name']}, the largest group.")
+        insight(i2, f"{profile.loc[small, 'Share %']}%", f"of customers are in {profile.loc[small, 'Name']}, the smallest group.")
+        insight(i3, "Tip", "Match a spend column in the sidebar to unlock spend-based insights.")
+    st.write("")
 
-    coords = PCA(n_components=2, random_state=42).fit_transform(X)
-    plot_df = df.assign(PC1=coords[:, 0], PC2=coords[:, 1])
-    st.plotly_chart(px.scatter(plot_df, x="PC1", y="PC2", color="Segment Name",
-                    title="Segment map: each dot is a customer, closer dots are more similar"))
+    with card():
+        coords = pca_coords(X)
+        plot_df = df.assign(PC1=coords[:, 0], PC2=coords[:, 1])
+        fig = px.scatter(plot_df, x="PC1", y="PC2", color="Segment Name", color_discrete_map=seg_color,
+                         title="Customer map: each dot is a customer, closer dots are more similar")
+        show(fig, st, 460)
     st.download_button("Download customers with segments (CSV)",
                        df.drop(columns=["Segment"]).to_csv(index=False),
                        file_name="customers_with_segments.csv", mime="text/csv")
 
 with tab2:
-    st.subheader("Segment profiles")
-    st.caption("Averages per segment. Size is the number of customers.")
-    st.dataframe(profile)
-    a, b = st.columns(2)
+    st.markdown("### Your segments")
+    metric_cols = [c for c in ["Spend", "Income", "Frequency"] if c in profile.columns] or feats[:3]
+    rows = list(profile.index)
+    for start in range(0, len(rows), 3):
+        cs = st.columns(3)
+        for col, i in zip(cs, rows[start:start + 3]):
+            r = profile.loc[i]
+            lines = "<br>".join(f"{esc(m)}: <b>{r[m]:,.1f}</b>" for m in metric_cols)
+            col.markdown(
+                f'<div class="seg"><div class="seg-n"><span class="dot" style="background:{seg_color[r["Name"]]}"></span>'
+                f'{esc(r["Name"])}</div><div class="seg-m">{int(r["Size"]):,} customers | {r["Share %"]}%</div>'
+                f'<div class="seg-k">{lines}</div><div class="seg-r">{esc(r["Recommendation"])}</div></div>',
+                unsafe_allow_html=True)
+
     ycol = "Spend" if has_spend else feats[0]
-    a.plotly_chart(px.bar(profile.reset_index(), x="Name", y=ycol, title=f"Average {ycol} per segment"))
-    b.plotly_chart(px.pie(profile.reset_index(), names="Name", values="Size", title="Share of customers"))
+    c1, c2 = st.columns(2)
+    with c1:
+        with card():
+            show(px.bar(profile.reset_index(), x="Name", y=ycol, color="Name", color_discrete_map=seg_color,
+                        title=f"Average {ycol} per segment").update_layout(showlegend=False, xaxis_title=None))
+    with c2:
+        with card():
+            show(px.pie(profile.reset_index(), names="Name", values="Size", color="Name",
+                        color_discrete_map=seg_color, title="Share of customers", hole=0.5))
     if has_resp:
-        resp = df.groupby("Segment Name")["Response"].mean().mul(100).round(1).reset_index()
-        st.plotly_chart(px.bar(resp, x="Segment Name", y="Response", title="Response / churn rate (%) by segment"))
-    with st.expander("How to choose k (elbow and silhouette)"):
-        st.caption("Look for where the elbow bends and the silhouette stays high while segments stay useful.")
+        with card():
+            resp = df.groupby("Segment Name")["Response"].mean().mul(100).round(1).reset_index()
+            show(px.bar(resp, x="Segment Name", y="Response", color="Segment Name", color_discrete_map=seg_color,
+                        title="Response / churn rate (%) by segment").update_layout(showlegend=False, xaxis_title=None), st, 320)
+    with st.expander("See the full segment table"):
+        st.dataframe(profile, column_config={
+            "Share %": st.column_config.ProgressColumn("Share %", min_value=0, max_value=100, format="%.1f%%")})
+    with st.expander("Not sure how many segments? (elbow and silhouette)"):
+        st.caption("Pick the k where the elbow bends and the silhouette stays high while segments stay useful.")
         ks, inertia, sils = k_scores(X)
-        st.plotly_chart(px.line(x=ks, y=inertia, markers=True,
-                        labels={"x": "k", "y": "Inertia"}, title="Elbow curve"))
-        st.plotly_chart(px.line(x=ks, y=sils, markers=True,
-                        labels={"x": "k", "y": "Silhouette"}, title="Silhouette score by k"))
+        e1, e2 = st.columns(2)
+        show(px.line(x=ks, y=inertia, markers=True, labels={"x": "k", "y": "Inertia"}, title="Elbow curve"), e1, 320)
+        show(px.line(x=ks, y=sils, markers=True, labels={"x": "k", "y": "Silhouette"}, title="Silhouette by k"), e2, 320)
 
 with tab3:
-    st.subheader("RFM tiers")
-    st.caption("RFM scores each customer 1-5 on Recency, Frequency and Monetary value, then labels them with a tier.")
+    st.markdown("### RFM tiers")
+    st.caption("Each customer is scored 1-5 on Recency, Frequency and Monetary value, then given a simple tier label.")
     if not (has_rec and has_freq and has_spend):
         st.info("RFM needs three columns matched in the sidebar: days since last purchase, number of purchases and spend.")
     else:
@@ -319,67 +412,82 @@ with tab3:
                   .round(0).reset_index())
         tier["Share of spend %"] = (tier["TotalSpend"] / tier["TotalSpend"].sum() * 100).round(1)
         x1, x2 = st.columns(2)
-        x1.plotly_chart(px.bar(tier, x="RFM Tier", y="Customers", title="Customers per tier"))
-        x2.plotly_chart(px.bar(tier, x="RFM Tier", y="Share of spend %", title="Share of spend per tier"))
-        st.dataframe(tier)
-        st.markdown(
-            "- **Champions:** bought recently, often and spend a lot. Reward them.\n"
-            "- **Loyal Customers:** steady buyers. Upsell and keep engaged.\n"
-            "- **Promising / New:** bought recently but low value so far. Nurture.\n"
-            "- **At Risk:** good value but have not bought recently. Win them back.\n"
-            "- **Needs Attention:** low value and not recent. Low-cost reminders only."
-        )
-        st.caption("How the K-Means segments overlap with RFM tiers (customer counts):")
-        st.dataframe(pd.crosstab(df["Segment Name"], df["RFM Tier"]))
+        with x1:
+            with card():
+                show(px.bar(tier, x="RFM Tier", y="Customers", color="RFM Tier",
+                            title="Customers per tier").update_layout(showlegend=False, xaxis_title=None), st, 340)
+        with x2:
+            with card():
+                show(px.bar(tier, x="RFM Tier", y="Share of spend %", color="RFM Tier",
+                            title="Share of spend per tier").update_layout(showlegend=False, xaxis_title=None), st, 340)
+        with card():
+            st.markdown(
+                "- **Champions:** bought recently, often and spend a lot. Reward them.\n"
+                "- **Loyal Customers:** steady buyers. Upsell and keep engaged.\n"
+                "- **Promising / New:** bought recently but low value so far. Nurture.\n"
+                "- **At Risk:** good value but have not bought recently. Win them back.\n"
+                "- **Needs Attention:** low value and not recent. Low-cost reminders only.")
+        with st.expander("See tier table and overlap with segments"):
+            st.dataframe(tier)
+            st.caption("How the K-Means segments overlap with RFM tiers (customer counts):")
+            st.dataframe(pd.crosstab(df["Segment Name"], df["RFM Tier"]))
 
 with tab4:
-    st.subheader("Which segment would a new customer fall into?")
-    st.caption("Enter customer details. Defaults are the dataset medians.")
+    st.markdown("### Where would a new customer fit?")
+    st.caption("Enter customer details and press the button. Defaults are the dataset medians.")
     vals = {}
-    cols_in = st.columns(min(len(feats), 3))
-    for i, f in enumerate(feats):
-        lo, hi, med = float(df[f].min()), float(df[f].max()), float(df[f].median())
-        vals[f] = cols_in[i % len(cols_in)].number_input(f, min_value=lo, max_value=hi, value=med)
+    with card():
+        with st.form("lookup"):
+            cols_in = st.columns(min(len(feats), 3))
+            for i, f in enumerate(feats):
+                lo, hi, med = float(df[f].min()), float(df[f].max()), float(df[f].median())
+                vals[f] = cols_in[i % len(cols_in)].number_input(f, min_value=lo, max_value=hi, value=med)
+            st.form_submit_button("Find segment")
     new = pd.DataFrame([vals])[feats]
-    seg_new = str(km.predict(scaler.transform(new))[0])
-    st.success(f"This customer fits **{profile.loc[seg_new, 'Name']}**")
-    st.write(profile.loc[seg_new, "Recommendation"])
-    comp = pd.DataFrame({"This customer": new.iloc[0], "Segment average": profile.loc[seg_new, feats]}).reset_index()
-    comp = comp.rename(columns={"index": "Feature"}).melt(id_vars="Feature", var_name="Who", value_name="Value")
-    st.plotly_chart(px.bar(comp, x="Feature", y="Value", color="Who", barmode="group",
-                    title="This customer vs their segment average"))
+    z = scaler.transform(new)
+    seg_new = str(int(np.argmin(((centers - z) ** 2).sum(axis=1))))
+    with card():
+        st.markdown(f"#### This customer fits: {profile.loc[seg_new, 'Name']}")
+        st.write(profile.loc[seg_new, "Recommendation"])
+        comp = pd.DataFrame({"This customer": new.iloc[0], "Segment average": profile.loc[seg_new, feats]}).reset_index()
+        comp = comp.rename(columns={"index": "Feature"}).melt(id_vars="Feature", var_name="Who", value_name="Value")
+        show(px.bar(comp, x="Feature", y="Value", color="Who", barmode="group",
+                    title="This customer vs their segment average"), st, 340)
 
 with tab5:
-    st.subheader("AI persona builder")
+    st.markdown("### AI persona builder")
     st.caption("Needs a free Gemini API key from Google AI Studio, entered in the sidebar.")
-    seg = st.selectbox("Choose a segment", profile.index.tolist(),
-                       format_func=lambda s: profile.loc[s, "Name"])
-    if st.button("Generate persona"):
-        if not key:
-            st.info("Add a Gemini API key in the sidebar first.")
-        else:
-            from google import genai
-            client = genai.Client(api_key=key.strip())
-            stats = profile.loc[seg].drop(["Name", "Recommendation"]).to_dict()
-            prompt = f"""You are a senior marketing strategist. Segment averages: {stats}.
+    with card():
+        seg = st.selectbox("Choose a segment", profile.index.tolist(),
+                           format_func=lambda s: profile.loc[s, "Name"])
+        go = st.button("Generate persona")
+        if go:
+            if not key:
+                st.info("Add a Gemini API key in the sidebar first.")
+            else:
+                from google import genai
+                client = genai.Client(api_key=key.strip())
+                stats = profile.loc[seg].drop(["Name", "Recommendation"]).to_dict()
+                prompt = f"""You are a senior marketing strategist. Segment averages: {stats}.
 Dataset averages for comparison: {avg.round(1).to_dict()}.
 Create: 1) a persona name and one-line description, 2) motivations and pain points,
 3) best channels, 4) three campaign ideas, 5) one risk. Use only the numbers provided;
 do not invent data. Keep it under 200 words, in bullets."""
-            text, last_error = None, ""
-            for model_name in ["gemini-flash-latest", "gemini-flash-lite-latest"]:
-                for attempt in range(3):
-                    try:
-                        out = client.models.generate_content(model=model_name, contents=prompt)
-                        text = out.text
-                        break
-                    except Exception as e:
-                        last_error = str(e)
-                        time.sleep(2 * (attempt + 1))
+                text, last_error = None, ""
+                with st.spinner("Writing persona..."):
+                    for model_name in ["gemini-flash-latest", "gemini-flash-lite-latest"]:
+                        for attempt in range(3):
+                            try:
+                                out = client.models.generate_content(model=model_name, contents=prompt)
+                                text = out.text
+                                break
+                            except Exception as e:
+                                last_error = str(e)
+                                time.sleep(2 * (attempt + 1))
+                        if text:
+                            break
                 if text:
-                    break
-            if text:
-                st.markdown(text)
-            else:
-                st.warning("Gemini is busy right now. Please try again in a few minutes.")
-                st.caption(last_error[:200])
+                    st.markdown(text)
+                else:
+                    st.warning("Gemini is busy right now. Please try again in a few minutes.")
+                    st.caption(last_error[:200])
