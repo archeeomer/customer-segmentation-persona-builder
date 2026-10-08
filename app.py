@@ -522,7 +522,7 @@ with tab4:
 with tab5:
     st.markdown("### AI personas")
     st.caption("Add a free Gemini API key in the sidebar, then generate marketing personas for each segment.")
-    GEMINI_MODEL = "gemini-2.5-flash"
+    GEMINI_MODEL = "gemini-3.8-flash"
     if not key:
         st.info("Enter your Gemini API key in the sidebar (section 4) to enable this tab.")
     elif st.button("Generate personas"):
