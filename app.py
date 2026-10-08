@@ -145,7 +145,7 @@ def clean_numeric(d):
     d = d.copy()
     d.columns = [str(c).strip() for c in d.columns]
     for c in d.columns:
-        if d[c].dtype == object:
+        if not pd.api.types.is_numeric_dtype(d[c]) and not pd.api.types.is_datetime64_any_dtype(d[c]):
             s = d[c].dropna().astype(str)
             if len(s) and s.str.match(MONEY).mean() >= 0.9:
                 d[c] = pd.to_numeric(d[c].astype(str).str.replace(r"[^0-9.\-]", "", regex=True)
