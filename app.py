@@ -1,4 +1,3 @@
-app
 import re
 import time
 from html import escape as esc
