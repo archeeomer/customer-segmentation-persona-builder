@@ -73,36 +73,22 @@ TEMPLATE_EXAMPLE = TEMPLATE_BLANK + (
     "C005,41,46000,780,9,40,0\n")
 
 REQ_MD = """
-**Data requirements**
-- **File:** a `.csv` file with column names in the first row. Files above 50,000 rows are sampled.
-- **Rows:** one row per customer, not one row per transaction. Use at least 20 rows; 200 or more gives more reliable segments.
-- **Columns:** at least 2 numeric columns with different values. Extra columns are welcome. Text columns and ID columns are ignored.
-- **Numbers:** write them as `1250` or `$1,250`. Blank cells are filled with the median. Dates are not read, so convert them to days since last purchase first.
-- **Response column (optional):** use 1 for responded or churned and 0 for did not.
-- **Privacy:** use anonymised data. This app does not save uploaded files.
-
-**What each column unlocks**
-
-| Column | Unlocks |
-|---|---|
-| Total_Spend | Spend insights, segment names, spend share |
-| Orders | Purchase frequency and RFM |
-| Recency_Days | RFM tiers |
-| Income | Income-based segment names |
-| Response | Response or churn chart |
-
-Your column names can differ. The app guesses them, and you can fix the guesses under "Match your columns".
+- One `.csv`, one row per customer. Use 20+ rows, ideally 200+.
+- At least 2 numeric columns. `1250` and `$1,250` both work.
+- Optional columns: Total_Spend, Orders, Recency_Days, Income, Response (1 or 0).
+- Use anonymised data. Nothing is saved.
 """
 
 def render_requirements(prefix):
+    st.download_button("Download template (CSV)", TEMPLATE_BLANK, file_name="customer_template_blank.csv",
+                       mime="text/csv", key=f"{prefix}_blank", type="primary", width="stretch")
+    st.download_button("Download example (5 rows)", TEMPLATE_EXAMPLE, file_name="customer_template_example.csv",
+                       mime="text/csv", key=f"{prefix}_example", width="stretch")
     st.markdown(REQ_MD)
-    st.download_button("Download blank template (CSV)", TEMPLATE_BLANK,
-                       file_name="customer_template_blank.csv", mime="text/csv", key=f"{prefix}_blank")
-    st.download_button("Download example with 5 sample rows", TEMPLATE_EXAMPLE,
-                       file_name="customer_template_example.csv", mime="text/csv", key=f"{prefix}_example")
 
 def read_this(items):
-    st.markdown("**How to read this**\n" + "\n".join(f"- {x}" for x in items))
+    with st.expander("How to read this"):
+        st.markdown("\n".join(f"- {x}" for x in items))
 
 def card():
     _c[0] += 1
@@ -211,6 +197,16 @@ def rfm_tier(r, fm):
 st.markdown('<div class="hero"><div class="hero-bar"></div><div class="hero-t">Customer Segmentation and Persona Builder</div>'
             '<div class="hero-s">Turn any customer file into segments, RFM tiers and AI-written marketing personas.</div></div>',
             unsafe_allow_html=True)
+
+with st.container(key="card_cta"):
+    t, b1, b2 = st.columns([2.4, 1, 1], vertical_alignment="center")
+    t.markdown("**Try it with your own data**  \nDownload the template, fill in one row per customer, then upload it in the sidebar.")
+    b1.download_button("Download template (CSV)", TEMPLATE_BLANK, file_name="customer_template_blank.csv",
+                       mime="text/csv", key="cta_blank", type="primary", width="stretch")
+    b2.download_button("Download example (5 rows)", TEMPLATE_EXAMPLE, file_name="customer_template_example.csv",
+                       mime="text/csv", key="cta_example", width="stretch")
+    with st.expander("Data requirements"):
+        st.markdown(REQ_MD)
 
 st.sidebar.markdown("### Setup")
 st.sidebar.markdown("**1. Data**")
@@ -354,10 +350,7 @@ st.markdown(f'<span class="chip">Data: {source}</span><span class="chip">{len(df
             f'<span class="chip">{len(feats)} grouping features</span><span class="chip">{k} segments</span>',
             unsafe_allow_html=True)
 if not up:
-    st.caption("You are viewing the sample dataset. To analyse your own file, open the box below, "
-               "download the template and upload it in the sidebar.")
-with st.expander("Using your own data? Requirements and downloadable template"):
-    render_requirements("main")
+    st.caption("Showing sample data. Upload your own file in the sidebar.")
 
 if has_spend:
     seg_spend = df.groupby("Segment")["Spend"].sum()
