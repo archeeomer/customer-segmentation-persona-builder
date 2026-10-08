@@ -64,6 +64,46 @@ SUM_NUM = "Sum of Num* purchase columns"
 MAX_ROWS = 50000
 _c = [0]
 
+TEMPLATE_BLANK = "Customer_ID,Age,Income,Total_Spend,Orders,Recency_Days,Response\n"
+TEMPLATE_EXAMPLE = TEMPLATE_BLANK + (
+    "C001,34,52000,1250,14,12,1\n"
+    "C002,45,78000,2890,22,5,0\n"
+    "C003,29,31000,310,4,95,0\n"
+    "C004,52,95000,4120,31,3,1\n"
+    "C005,41,46000,780,9,40,0\n")
+
+REQ_MD = """
+**Data requirements**
+- **File:** a `.csv` file with column names in the first row. Files above 50,000 rows are sampled.
+- **Rows:** one row per customer, not one row per transaction. Use at least 20 rows; 200 or more gives more reliable segments.
+- **Columns:** at least 2 numeric columns with different values. Extra columns are welcome. Text columns and ID columns are ignored.
+- **Numbers:** write them as `1250` or `$1,250`. Blank cells are filled with the median. Dates are not read, so convert them to days since last purchase first.
+- **Response column (optional):** use 1 for responded or churned and 0 for did not.
+- **Privacy:** use anonymised data. This app does not save uploaded files.
+
+**What each column unlocks**
+
+| Column | Unlocks |
+|---|---|
+| Total_Spend | Spend insights, segment names, spend share |
+| Orders | Purchase frequency and RFM |
+| Recency_Days | RFM tiers |
+| Income | Income-based segment names |
+| Response | Response or churn chart |
+
+Your column names can differ. The app guesses them, and you can fix the guesses under "Match your columns".
+"""
+
+def render_requirements(prefix):
+    st.markdown(REQ_MD)
+    st.download_button("Download blank template (CSV)", TEMPLATE_BLANK,
+                       file_name="customer_template_blank.csv", mime="text/csv", key=f"{prefix}_blank")
+    st.download_button("Download example with 5 sample rows", TEMPLATE_EXAMPLE,
+                       file_name="customer_template_example.csv", mime="text/csv", key=f"{prefix}_example")
+
+def read_this(items):
+    st.markdown("**How to read this**\n" + "\n".join(f"- {x}" for x in items))
+
 def card():
     _c[0] += 1
     return st.container(key=f"card_{_c[0]}")
@@ -176,6 +216,8 @@ st.sidebar.markdown("### Setup")
 st.sidebar.markdown("**1. Data**")
 up = st.sidebar.file_uploader("Upload a customer CSV", type="csv",
                               help="One row per customer. Any column names work. Leave empty to use the sample data.")
+with st.sidebar.expander("Data requirements and template"):
+    render_requirements("sb")
 try:
     raw = read_any(up) if up else load_sample("data/ifood_df.csv")
 except Exception:
@@ -191,7 +233,8 @@ num_cols = [c for c in df.columns
             if pd.api.types.is_numeric_dtype(df[c]) and df[c].notna().sum() > 0
             and df[c].nunique() > 1 and not is_id_like(c)]
 if len(df) < 20 or len(num_cols) < 2:
-    st.error("The file needs at least 20 rows and 2 numeric columns with different values.")
+    st.error("The file needs at least 20 rows and 2 numeric columns with different values. "
+             "Open 'Data requirements and template' in the sidebar for help.")
     st.stop()
 
 mnt = [c for c in df.columns if c.startswith("Mnt") and c not in ("MntTotal", "MntRegularProds")
@@ -310,6 +353,52 @@ source = esc(up.name) if up else "Sample dataset (iFood-style)"
 st.markdown(f'<span class="chip">Data: {source}</span><span class="chip">{len(df):,} customers</span>'
             f'<span class="chip">{len(feats)} grouping features</span><span class="chip">{k} segments</span>',
             unsafe_allow_html=True)
+if not up:
+    st.caption("You are viewing the sample dataset. To analyse your own file, open the box below, "
+               "download the template and upload it in the sidebar.")
+with st.expander("Using your own data? Requirements and downloadable template"):
+    render_requirements("main")
+
+if has_spend:
+    seg_spend = df.groupby("Segment")["Spend"].sum()
+    spend_share = (seg_spend / seg_spend.sum() * 100).round(0)
+
+rfm_ready = has_rec and has_freq and has_spend
+if rfm_ready:
+    rfm = pd.DataFrame({
+        "R": score_5(df["Recency_"], higher_is_better=False),
+        "F": score_5(df["Frequency"]),
+        "M": score_5(df["Spend"]),
+    })
+    rfm["FM"] = (rfm["F"] + rfm["M"]) / 2
+    df["RFM Tier"] = [rfm_tier(r, fm) for r, fm in zip(rfm["R"], rfm["FM"])]
+overall_resp = df["Response"].mean() * 100 if has_resp else None
+
+LABELS = {"Recency_": "Days since last purchase", "Frequency": "Number of purchases"}
+
+def compare_text(v, a):
+    if not a:
+        return "no baseline to compare"
+    d = (v / a - 1) * 100
+    if abs(d) < 5:
+        return "in line with the overall average"
+    return f"{abs(d):.0f}% {'above' if d > 0 else 'below'} the overall average"
+
+def segment_insights(i):
+    r = profile.loc[i]
+    out = [f"**Size:** {int(r['Size']):,} customers, {r['Share %']}% of the base."]
+    if has_spend:
+        out.append(f"**Value:** drives about {int(spend_share[i])}% of total spend.")
+    for f in feats[:4]:
+        out.append(f"**{LABELS.get(f, f)}:** {r[f]:,.1f}, {compare_text(r[f], avg[f])}.")
+    if has_resp:
+        rr = df.loc[df["Segment"] == i, "Response"].mean() * 100
+        out.append(f"**Response:** {rr:.1f}% against {overall_resp:.1f}% overall.")
+    if rfm_ready:
+        mix = df.loc[df["Segment"] == i, "RFM Tier"].value_counts(normalize=True)
+        out.append(f"**RFM:** mostly {mix.index[0]} ({mix.iloc[0] * 100:.0f}% of this segment).")
+    out.append(f"**Suggested action:** {r['Recommendation']}")
+    return out
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview", "Segments", "RFM Tiers", "Customer Lookup", "AI Personas"])
 
@@ -318,176 +407,3 @@ with tab1:
     kpi(k1, "Customers", f"{len(df):,}", "rows analysed", "#4F46E5")
     kpi(k2, "Segments", k, "groups found", "#F5B800")
     kpi(k3, "Cluster quality", f"{sil:.2f}", f"{quality(sil)} separation", "#10B981")
-    if has_spend:
-        kpi(k4, "Average spend", f"{df['Spend'].mean():,.0f}", "per customer", "#F472B6")
-    else:
-        kpi(k4, "Features used", len(feats), "for grouping", "#F472B6")
-    st.write("")
-
-    big = profile["Size"].idxmax()
-    i1, i2, i3 = st.columns(3)
-    if has_spend:
-        seg_spend = df.groupby("Segment")["Spend"].sum()
-        spend_share = (seg_spend / seg_spend.sum() * 100).round(0)
-        top = spend_share.idxmax()
-        insight(i1, f"{int(spend_share[top])}% of spend",
-                f"comes from {profile.loc[top, 'Name']}, only {profile.loc[top, 'Share %']}% of customers.")
-        insight(i2, f"{profile.loc[big, 'Share %']}% of customers",
-                f"are in the largest group, {profile.loc[big, 'Name']}, which brings about {int(spend_share[big])}% of spend.")
-        lo, hi = profile["Spend"].min(), profile["Spend"].max()
-        insight(i3, f"{hi / lo:.0f}x gap" if lo > 0 else f"{hi:,.0f} top",
-                f"between the highest and lowest average spend ({hi:,.0f} vs {lo:,.0f}).")
-    else:
-        small = profile["Size"].idxmin()
-        insight(i1, f"{profile.loc[big, 'Share %']}%", f"of customers are in {profile.loc[big, 'Name']}, the largest group.")
-        insight(i2, f"{profile.loc[small, 'Share %']}%", f"of customers are in {profile.loc[small, 'Name']}, the smallest group.")
-        insight(i3, "Tip", "Match a spend column in the sidebar to unlock spend-based insights.")
-    st.write("")
-
-    with card():
-        coords = pca_coords(X)
-        plot_df = df.assign(PC1=coords[:, 0], PC2=coords[:, 1])
-        fig = px.scatter(plot_df, x="PC1", y="PC2", color="Segment Name", color_discrete_map=seg_color,
-                         title="Customer map: each dot is a customer, closer dots are more similar")
-        show(fig, st, 460)
-    st.download_button("Download customers with segments (CSV)",
-                       df.drop(columns=["Segment"]).to_csv(index=False),
-                       file_name="customers_with_segments.csv", mime="text/csv")
-
-with tab2:
-    st.markdown("### Your segments")
-    metric_cols = [c for c in ["Spend", "Income", "Frequency"] if c in profile.columns] or feats[:3]
-    rows = list(profile.index)
-    for start in range(0, len(rows), 3):
-        cs = st.columns(3)
-        for col, i in zip(cs, rows[start:start + 3]):
-            r = profile.loc[i]
-            lines = "<br>".join(f"{esc(m)}: <b>{r[m]:,.1f}</b>" for m in metric_cols)
-            col.markdown(
-                f'<div class="seg"><div class="seg-n"><span class="dot" style="background:{seg_color[r["Name"]]}"></span>'
-                f'{esc(r["Name"])}</div><div class="seg-m">{int(r["Size"]):,} customers | {r["Share %"]}%</div>'
-                f'<div class="seg-k">{lines}</div><div class="seg-r">{esc(r["Recommendation"])}</div></div>',
-                unsafe_allow_html=True)
-
-    ycol = "Spend" if has_spend else feats[0]
-    c1, c2 = st.columns(2)
-    with c1:
-        with card():
-            show(px.bar(profile.reset_index(), x="Name", y=ycol, color="Name", color_discrete_map=seg_color,
-                        title=f"Average {ycol} per segment").update_layout(showlegend=False, xaxis_title=None))
-    with c2:
-        with card():
-            show(px.pie(profile.reset_index(), names="Name", values="Size", color="Name",
-                        color_discrete_map=seg_color, title="Share of customers", hole=0.5))
-    if has_resp:
-        with card():
-            resp = df.groupby("Segment Name")["Response"].mean().mul(100).round(1).reset_index()
-            show(px.bar(resp, x="Segment Name", y="Response", color="Segment Name", color_discrete_map=seg_color,
-                        title="Response / churn rate (%) by segment").update_layout(showlegend=False, xaxis_title=None), st, 320)
-    with st.expander("See the full segment table"):
-        st.dataframe(profile, column_config={
-            "Share %": st.column_config.ProgressColumn("Share %", min_value=0, max_value=100, format="%.1f%%")})
-    with st.expander("Not sure how many segments? (elbow and silhouette)"):
-        st.caption("Pick the k where the elbow bends and the silhouette stays high while segments stay useful.")
-        ks, inertia, sils = k_scores(X)
-        e1, e2 = st.columns(2)
-        show(px.line(x=ks, y=inertia, markers=True, labels={"x": "k", "y": "Inertia"}, title="Elbow curve"), e1, 320)
-        show(px.line(x=ks, y=sils, markers=True, labels={"x": "k", "y": "Silhouette"}, title="Silhouette by k"), e2, 320)
-
-with tab3:
-    st.markdown("### RFM tiers")
-    st.caption("Each customer is scored 1-5 on Recency, Frequency and Monetary value, then given a simple tier label.")
-    if not (has_rec and has_freq and has_spend):
-        st.info("RFM needs three columns matched in the sidebar: days since last purchase, number of purchases and spend.")
-    else:
-        rfm = pd.DataFrame({
-            "R": score_5(df["Recency_"], higher_is_better=False),
-            "F": score_5(df["Frequency"]),
-            "M": score_5(df["Spend"]),
-        })
-        rfm["FM"] = (rfm["F"] + rfm["M"]) / 2
-        df["RFM Tier"] = [rfm_tier(r, fm) for r, fm in zip(rfm["R"], rfm["FM"])]
-        tier = (df.groupby("RFM Tier")
-                  .agg(Customers=("Spend", "size"), AvgSpend=("Spend", "mean"), TotalSpend=("Spend", "sum"))
-                  .round(0).reset_index())
-        tier["Share of spend %"] = (tier["TotalSpend"] / tier["TotalSpend"].sum() * 100).round(1)
-        x1, x2 = st.columns(2)
-        with x1:
-            with card():
-                show(px.bar(tier, x="RFM Tier", y="Customers", color="RFM Tier",
-                            title="Customers per tier").update_layout(showlegend=False, xaxis_title=None), st, 340)
-        with x2:
-            with card():
-                show(px.bar(tier, x="RFM Tier", y="Share of spend %", color="RFM Tier",
-                            title="Share of spend per tier").update_layout(showlegend=False, xaxis_title=None), st, 340)
-        with card():
-            st.markdown(
-                "- **Champions:** bought recently, often and spend a lot. Reward them.\n"
-                "- **Loyal Customers:** steady buyers. Upsell and keep engaged.\n"
-                "- **Promising / New:** bought recently but low value so far. Nurture.\n"
-                "- **At Risk:** good value but have not bought recently. Win them back.\n"
-                "- **Needs Attention:** low value and not recent. Low-cost reminders only.")
-        with st.expander("See tier table and overlap with segments"):
-            st.dataframe(tier)
-            st.caption("How the K-Means segments overlap with RFM tiers (customer counts):")
-            st.dataframe(pd.crosstab(df["Segment Name"], df["RFM Tier"]))
-
-with tab4:
-    st.markdown("### Where would a new customer fit?")
-    st.caption("Enter customer details and press the button. Defaults are the dataset medians.")
-    vals = {}
-    with card():
-        with st.form("lookup"):
-            cols_in = st.columns(min(len(feats), 3))
-            for i, f in enumerate(feats):
-                lo, hi, med = float(df[f].min()), float(df[f].max()), float(df[f].median())
-                vals[f] = cols_in[i % len(cols_in)].number_input(f, min_value=lo, max_value=hi, value=med)
-            st.form_submit_button("Find segment")
-    new = pd.DataFrame([vals])[feats]
-    z = scaler.transform(new)
-    seg_new = str(int(np.argmin(((centers - z) ** 2).sum(axis=1))))
-    with card():
-        st.markdown(f"#### This customer fits: {profile.loc[seg_new, 'Name']}")
-        st.write(profile.loc[seg_new, "Recommendation"])
-        comp = pd.DataFrame({"This customer": new.iloc[0], "Segment average": profile.loc[seg_new, feats]}).reset_index()
-        comp = comp.rename(columns={"index": "Feature"}).melt(id_vars="Feature", var_name="Who", value_name="Value")
-        show(px.bar(comp, x="Feature", y="Value", color="Who", barmode="group",
-                    title="This customer vs their segment average"), st, 340)
-
-with tab5:
-    st.markdown("### AI persona builder")
-    st.caption("Needs a free Gemini API key from Google AI Studio, entered in the sidebar.")
-    with card():
-        seg = st.selectbox("Choose a segment", profile.index.tolist(),
-                           format_func=lambda s: profile.loc[s, "Name"])
-        go = st.button("Generate persona")
-        if go:
-            if not key:
-                st.info("Add a Gemini API key in the sidebar first.")
-            else:
-                from google import genai
-                client = genai.Client(api_key=key.strip())
-                stats = profile.loc[seg].drop(["Name", "Recommendation"]).to_dict()
-                prompt = f"""You are a senior marketing strategist. Segment averages: {stats}.
-Dataset averages for comparison: {avg.round(1).to_dict()}.
-Create: 1) a persona name and one-line description, 2) motivations and pain points,
-3) best channels, 4) three campaign ideas, 5) one risk. Use only the numbers provided;
-do not invent data. Keep it under 200 words, in bullets."""
-                text, last_error = None, ""
-                with st.spinner("Writing persona..."):
-                    for model_name in ["gemini-flash-latest", "gemini-flash-lite-latest"]:
-                        for attempt in range(3):
-                            try:
-                                out = client.models.generate_content(model=model_name, contents=prompt)
-                                text = out.text
-                                break
-                            except Exception as e:
-                                last_error = str(e)
-                                time.sleep(2 * (attempt + 1))
-                        if text:
-                            break
-                if text:
-                    st.markdown(text)
-                else:
-                    st.warning("Gemini is busy right now. Please try again in a few minutes.")
-                    st.caption(last_error[:200])
