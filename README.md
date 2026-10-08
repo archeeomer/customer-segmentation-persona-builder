@@ -44,6 +44,8 @@ Public Marketing Analytics dataset from Kaggle (ifood_df.csv), 2,205 customers.
 - RFM tiers: customers scored 1-5 on Recency, Frequency and Monetary value, then labelled Champions, Loyal, Promising, At Risk or Needs Attention
 - Customer lookup: predicts which segment a new customer would belong to
 - Tabbed layout with automatic key takeaways and CSV export
+- Works with any customer CSV: automatic column detection with manual matching
+- it includes RFM tiers and customer lookup
 
 ## Key insights
 1. Premium Big Spenders are 30.9% of customers but about 70% of total spend (average spend 1,378 vs 81 for the lowest segment).
