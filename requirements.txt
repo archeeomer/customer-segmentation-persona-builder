@@ -3,3 +3,4 @@ pandas
 scikit-learn
 plotly
 google-genai
+pyarrow<25
