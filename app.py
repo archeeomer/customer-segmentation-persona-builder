@@ -1,3 +1,4 @@
+app
 import re
 import time
 from html import escape as esc
@@ -19,12 +20,27 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 html, body, .stApp, [data-testid="stSidebar"] { font-family: 'Inter', sans-serif; }
-.stApp { background: #F5F6FA; }
+.stApp {
+  background-color: #F5F6FA;
+  background-image:
+    radial-gradient(circle at 8% 0%, rgba(79,70,229,0.10) 0, transparent 38%),
+    radial-gradient(circle at 100% 15%, rgba(245,184,0,0.10) 0, transparent 32%),
+    radial-gradient(rgba(79,70,229,0.12) 1px, transparent 1.2px);
+  background-size: auto, auto, 24px 24px;
+  background-attachment: fixed;
+}
 #MainMenu, footer { visibility: hidden; }
 .block-container { padding-top: 1.5rem; max-width: 1280px; }
 [data-testid="stSidebar"] { background: #FFFFFF; border-right: 1px solid #E7E9F0; }
-.hero { background: linear-gradient(120deg, #1E1B4B 0%, #4F46E5 100%); border-radius: 20px;
-        padding: 28px 32px; margin-bottom: 14px; }
+.hero { position: relative; overflow: hidden; border-radius: 20px; padding: 28px 32px; margin-bottom: 14px;
+        background:
+          radial-gradient(circle at 92% 20%, rgba(245,184,0,0.35) 0, transparent 22%),
+          radial-gradient(rgba(255,255,255,0.14) 1.5px, transparent 1.8px),
+          linear-gradient(120deg, #1E1B4B 0%, #4F46E5 100%);
+        background-size: auto, 22px 22px, auto; }
+.hero::after { content: ""; position: absolute; right: -60px; top: -60px; width: 220px; height: 220px;
+        border-radius: 50%; border: 28px solid rgba(255,255,255,0.07); }
+.hero-t, .hero-s, .hero-bar { position: relative; z-index: 1; }
 .hero-t { color: #FFFFFF; font-size: 28px; font-weight: 700; letter-spacing: -0.3px; }
 .hero-s { color: #E0E7FF; font-size: 15px; margin-top: 6px; }
 .hero-bar { width: 56px; height: 4px; background: #F5B800; border-radius: 4px; margin-bottom: 12px; }
