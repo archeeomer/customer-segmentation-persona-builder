@@ -21,14 +21,30 @@ Interactive dashboard that groups customers into segments and generates AI marke
 
 ## Screenshots
 
-### Overview and segment map
-![Dashboard overview](dashboard-overview.png)
+### Overview
+Key numbers, insights and the customer map in one view.
 
-### Segment profiles and charts
-![Segment profiles](segment-profiles.png)
+![Dashboard overview](dashboard-overview.png.png)
 
-### Choosing k and AI personas
-![AI persona](ai-persona.png)
+### Segments
+Each segment gets a profile, share of spend and a suggested action.
+
+![Segment profiles](segment-profiles.png.png)
+
+### RFM Tiers
+Customers sorted into Champions, Loyal, Promising, At Risk and Needs Attention.
+
+![RFM tiers](rfm-tiers.png.png)
+
+### Customer Lookup
+See where a single customer sits compared with their segment and the overall average.
+
+![Customer lookup](customer-lookup.png.jpeg)
+
+### AI Personas
+Gemini writes a marketing persona and actions for every segment.
+
+![AI personas](ai-persona.png.png)
 
 ## Business question
 Which customer groups should a marketer prioritise, and what should be done for each?
