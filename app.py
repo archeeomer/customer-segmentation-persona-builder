@@ -407,3 +407,126 @@ with tab1:
     kpi(k1, "Customers", f"{len(df):,}", "rows analysed", "#4F46E5")
     kpi(k2, "Segments", k, "groups found", "#F5B800")
     kpi(k3, "Cluster quality", f"{sil:.2f}", f"{quality(sil)} separation", "#10B981")
+    if has_spend:
+        kpi(k4, "Avg spend", f"{df['Spend'].mean():,.0f}", "per customer", "#F472B6")
+    elif has_resp:
+        kpi(k4, "Response rate", f"{overall_resp:.1f}%", "overall", "#F472B6")
+    else:
+        kpi(k4, "Features", len(feats), "used for grouping", "#F472B6")
+
+    st.markdown("### Key insights")
+    i1, i2, i3 = st.columns(3)
+    big_i = profile["Size"].idxmax()
+    insight(i1, f"{profile.loc[big_i, 'Share %']}%", f"of customers sit in {profile.loc[big_i, 'Name']}, the largest segment.")
+    if has_spend:
+        top_i = spend_share.idxmax()
+        insight(i2, f"{int(spend_share[top_i])}%", f"of total spend comes from {profile.loc[top_i, 'Name']}.")
+    else:
+        insight(i2, str(k), "segments found. Add a spend column to see value by segment.")
+    if has_resp:
+        rr_all = df.groupby("Segment")["Response"].mean() * 100
+        best = rr_all.idxmax()
+        insight(i3, f"{rr_all[best]:.1f}%", f"response rate in {profile.loc[best, 'Name']}, against {overall_resp:.1f}% overall.")
+    else:
+        insight(i3, quality(sil), f"cluster separation (silhouette score {sil:.2f}).")
+
+    st.markdown("### Customer map")
+    coords = pca_coords(X)
+    plot_df = pd.DataFrame({"PC1": coords[:, 0], "PC2": coords[:, 1], "Segment": df["Segment Name"].values})
+    if len(plot_df) > 5000:
+        plot_df = plot_df.sample(5000, random_state=42)
+    fig = px.scatter(plot_df, x="PC1", y="PC2", color="Segment", color_discrete_map=seg_color,
+                     opacity=0.7, title="Customers projected onto 2 dimensions")
+    with card():
+        show(fig, h=460)
+    read_this(["Each dot is one customer. Dots close together have similar behaviour.",
+               "Colours are segments. Clear colour groups mean well-separated segments."])
+
+with tab2:
+    st.markdown("### Segment profiles")
+    ui = st.columns(2)
+    for n, i in enumerate(profile.index):
+        with ui[n % 2]:
+            with card():
+                nm = profile.loc[i, "Name"]
+                st.markdown(f'<div class="seg-n"><span class="dot" style="background:{seg_color[nm]}"></span>{esc(nm)}</div>',
+                            unsafe_allow_html=True)
+                st.markdown("\n".join(f"- {x}" for x in segment_insights(i)))
+    st.markdown("### Segment table")
+    st.dataframe(profile.drop(columns=["Recommendation"]), width="stretch")
+    if has_resp:
+        rr = (df.groupby("Segment Name")["Response"].mean() * 100).reset_index()
+        rr.columns = ["Segment", "Response %"]
+        figr = px.bar(rr, x="Segment", y="Response %", color="Segment", color_discrete_map=seg_color,
+                      title="Response rate by segment")
+        with card():
+            show(figr, h=360)
+    st.markdown("### Choosing the number of segments")
+    ks, inertia, sils = k_scores(X)
+    c1, c2 = st.columns(2)
+    f1 = px.line(x=ks, y=inertia, markers=True, title="Elbow: lower is tighter",
+                 labels={"x": "k", "y": "Inertia"})
+    f2 = px.line(x=ks, y=sils, markers=True, title="Silhouette: higher is cleaner",
+                 labels={"x": "k", "y": "Silhouette"})
+    with c1:
+        with card():
+            show(f1, h=320)
+    with c2:
+        with card():
+            show(f2, h=320)
+    read_this(["Pick a k where the elbow flattens and the silhouette is high.",
+               "Choose the k that gives segments you can act on, not only the best score."])
+
+with tab3:
+    st.markdown("### RFM tiers")
+    if not rfm_ready:
+        st.info("RFM needs spend, purchase count and days-since-last-purchase columns. "
+                "Match them in the sidebar under 'Match your columns'.")
+    else:
+        order = ["Champions", "Loyal Customers", "Promising / New", "Needs Attention", "At Risk"]
+        tc = df["RFM Tier"].value_counts().reindex(order).fillna(0).reset_index()
+        tc.columns = ["Tier", "Customers"]
+        figt = px.bar(tc, x="Tier", y="Customers", color="Tier", title="Customers per RFM tier")
+        with card():
+            show(figt, h=360)
+        mixdf = pd.crosstab(df["Segment Name"], df["RFM Tier"])
+        st.markdown("### RFM tiers inside each segment")
+        st.dataframe(mixdf, width="stretch")
+        st.markdown("### Average behaviour per tier")
+        st.dataframe(df.groupby("RFM Tier")[["Recency_", "Frequency", "Spend"]].mean().round(1), width="stretch")
+        read_this(["R, F and M are scored 1 to 5 from recency, frequency and spend.",
+                   "Champions buy recently and often. At Risk customers used to buy but have gone quiet."])
+
+with tab4:
+    st.markdown("### Customer lookup")
+    row = st.number_input("Row number (0 is the first customer)", min_value=0, max_value=len(df) - 1, value=0, step=1)
+    cust = df.iloc[int(row)]
+    seg_id = cust["Segment"]
+    st.markdown(f"**Segment:** {profile.loc[seg_id, 'Name']}")
+    if rfm_ready:
+        st.markdown(f"**RFM tier:** {cust['RFM Tier']}")
+    cmp_df = pd.DataFrame({"Customer": cust[cols].astype(float),
+                           "Segment average": profile.loc[seg_id, cols].astype(float),
+                           "Overall average": avg[cols].astype(float)}).round(1)
+    st.dataframe(cmp_df, width="stretch")
+    st.markdown(f"**Suggested action:** {profile.loc[seg_id, 'Recommendation']}")
+
+with tab5:
+    st.markdown("### AI personas")
+    st.caption("Add a free Gemini API key in the sidebar, then generate marketing personas for each segment.")
+    GEMINI_MODEL = "gemini-2.5-flash"
+    if not key:
+        st.info("Enter your Gemini API key in the sidebar (section 4) to enable this tab.")
+    elif st.button("Generate personas"):
+        summary = profile.drop(columns=["Recommendation"]).to_string()
+        prompt = ("You are a marketing analyst. Below is a table of customer segments with average values. "
+                  "For each segment write a short persona: a name, who they are, what they value, and two "
+                  "marketing actions. Use plain language and only the numbers given.\n\n" + summary)
+        try:
+            from google import genai
+            client = genai.Client(api_key=key)
+            with st.spinner("Writing personas..."):
+                resp = client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
+            st.markdown(resp.text)
+        except Exception as e:
+            st.error(f"The AI request failed: {e}")
