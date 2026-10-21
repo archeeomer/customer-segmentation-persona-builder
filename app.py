@@ -10,14 +10,14 @@ from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score
 
-st.set_page_config(page_title="Customer Persona Builder", page_icon="📊", layout="wide")
+st.set_page_config(page_title="SegmentIQ | Customer Segmentation and Persona Builder", page_icon="🎯", layout="wide")
 
 PAL = ["#4F46E5", "#F5B800", "#10B981", "#F472B6", "#22D3EE", "#F97316", "#8B5CF6", "#64748B"]
 px.defaults.color_discrete_sequence = PAL
 
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 html, body, .stApp, [data-testid="stSidebar"] { font-family: 'Inter', sans-serif; }
 .stApp {
   background-color: #F5F6FA;
@@ -31,7 +31,7 @@ html, body, .stApp, [data-testid="stSidebar"] { font-family: 'Inter', sans-serif
 #MainMenu, footer { visibility: hidden; }
 .block-container { padding-top: 1.5rem; max-width: 1280px; }
 [data-testid="stSidebar"] { background: #FFFFFF; border-right: 1px solid #E7E9F0; }
-.hero { position: relative; overflow: hidden; border-radius: 20px; padding: 28px 32px; margin-bottom: 14px;
+.hero { position: relative; overflow: hidden; border-radius: 20px; padding: 30px 34px 26px 34px; margin-bottom: 14px;
         background:
           radial-gradient(circle at 92% 20%, rgba(245,184,0,0.35) 0, transparent 22%),
           radial-gradient(rgba(255,255,255,0.14) 1.5px, transparent 1.8px),
@@ -39,10 +39,22 @@ html, body, .stApp, [data-testid="stSidebar"] { font-family: 'Inter', sans-serif
         background-size: auto, 22px 22px, auto; }
 .hero::after { content: ""; position: absolute; right: -60px; top: -60px; width: 220px; height: 220px;
         border-radius: 50%; border: 28px solid rgba(255,255,255,0.07); }
-.hero-t, .hero-s, .hero-bar { position: relative; z-index: 1; }
-.hero-t { color: #FFFFFF; font-size: 28px; font-weight: 700; letter-spacing: -0.3px; }
+.hero > div { position: relative; z-index: 1; }
+.brand { display: flex; align-items: center; color: #FFFFFF; font-size: 52px; font-weight: 800;
+        letter-spacing: -2px; line-height: 1.1; }
+.brand-b { background: #F5B800; color: #1E1B4B; border-radius: 14px; padding: 0 14px; margin-left: 8px;
+        box-shadow: 0 8px 22px rgba(245,184,0,0.40); }
+.hero-t { color: #C7D2FE; font-size: 17px; font-weight: 600; margin-top: 10px; letter-spacing: 0.2px; }
 .hero-s { color: #E0E7FF; font-size: 15px; margin-top: 6px; }
-.hero-bar { width: 56px; height: 4px; background: #F5B800; border-radius: 4px; margin-bottom: 12px; }
+.hero-bar { width: 56px; height: 4px; background: #F5B800; border-radius: 4px; margin-bottom: 14px; }
+.hero-pills { margin-top: 14px; }
+.hero-pills span { display: inline-block; background: rgba(255,255,255,0.14); color: #FFFFFF;
+        border: 1px solid rgba(255,255,255,0.28); border-radius: 999px; padding: 4px 12px; font-size: 12.5px;
+        font-weight: 600; margin-right: 8px; }
+.side-brand { font-size: 24px; font-weight: 800; color: #1E1B4B; letter-spacing: -0.8px; margin-bottom: 2px; }
+.side-brand span { background: #F5B800; color: #1E1B4B; border-radius: 7px; padding: 0 7px; margin-left: 3px; }
+.foot { text-align: center; color: #64748B; font-size: 12.5px; margin: 28px 0 8px 0; }
+.foot b { color: #1E1B4B; }
 .chip { display: inline-block; background: #FFFFFF; border: 1px solid #E7E9F0; color: #334155;
         border-radius: 999px; padding: 4px 12px; font-size: 12.5px; margin: 0 8px 8px 0; }
 .kpi { background: #FFFFFF; border-radius: 16px; padding: 16px 18px; border: 1px solid #E7E9F0;
@@ -209,13 +221,16 @@ def rfm_tier(r, fm):
         return "At Risk"
     return "Needs Attention"
 
-st.markdown('<div class="hero"><div class="hero-bar"></div><div class="hero-t">Customer Segmentation and Persona Builder</div>'
-            '<div class="hero-s">Turn any customer file into segments, RFM tiers and AI-written marketing personas.</div></div>',
+st.markdown('<div class="hero"><div class="hero-bar"></div>'
+            '<div class="brand">Segment<span class="brand-b">IQ</span></div>'
+            '<div class="hero-t">Customer Segmentation and Persona Builder</div>'
+            '<div class="hero-s">Turn any customer file into segments, RFM tiers and AI-written marketing personas.</div>'
+            '<div class="hero-pills"><span>K-Means</span><span>RFM tiers</span><span>Gemini personas</span></div></div>',
             unsafe_allow_html=True)
 
 with st.container(key="card_cta"):
     t, b1, b2 = st.columns([2.4, 1, 1], vertical_alignment="center")
-    t.markdown("**Try it with your own data**  \nDownload the template, fill in one row per customer, then upload it in the sidebar.")
+    t.markdown("**Try SegmentIQ with your own data**  \nDownload the template, fill in one row per customer, then upload it in the sidebar.")
     b1.download_button("Download template (CSV)", TEMPLATE_BLANK, file_name="customer_template_blank.csv",
                        mime="text/csv", key="cta_blank", type="primary", width="stretch")
     b2.download_button("Download example (5 rows)", TEMPLATE_EXAMPLE, file_name="customer_template_example.csv",
@@ -223,6 +238,7 @@ with st.container(key="card_cta"):
     with st.expander("Data requirements"):
         st.markdown(REQ_MD)
 
+st.sidebar.markdown('<div class="side-brand">Segment<span>IQ</span></div>', unsafe_allow_html=True)
 st.sidebar.markdown("### Setup")
 st.sidebar.markdown("**1. Data**")
 up = st.sidebar.file_uploader("Upload a customer CSV", type="csv",
@@ -462,6 +478,8 @@ with tab2:
                 st.markdown("\n".join(f"- {x}" for x in segment_insights(i)))
     st.markdown("### Segment table")
     st.dataframe(profile.drop(columns=["Recommendation"]), width="stretch")
+    st.download_button("Download segmented customers (CSV)", df.to_csv(index=False).encode("utf-8"),
+                       file_name="segmentiq_segments.csv", mime="text/csv", key="export_csv", type="primary")
     if has_resp:
         rr = (df.groupby("Segment Name")["Response"].mean() * 100).reset_index()
         rr.columns = ["Segment", "Response %"]
@@ -538,3 +556,6 @@ with tab5:
             st.markdown(resp.text)
         except Exception as e:
             st.error(f"The AI request failed: {e}")
+
+st.markdown('<div class="foot"><b>SegmentIQ</b> | Built with Python, Streamlit, scikit-learn, Plotly and Gemini</div>',
+            unsafe_allow_html=True)
