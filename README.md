@@ -1,6 +1,8 @@
-# Customer Segmentation and Persona Builder
+<p align="center">
+  <img src="segmentiq-banner.png" alt="SegmentIQ: Customer Segmentation and Persona Builder" width="100%">
+</p>
 
-Interactive dashboard that groups customers into segments and generates AI marketing personas.
+<p align="center"><b>Turn any customer file into segments, RFM tiers and AI-written marketing personas.</b></p>
 
 <h3>🚀 Live Demo</h3>
 
@@ -15,7 +17,7 @@ Interactive dashboard that groups customers into segments and generates AI marke
             border-radius:999px;
             font-weight:600;
             font-size:16px;">
-    ▶ Launch Interactive Dashboard
+    ▶ Launch SegmentIQ
   </a>
 </p>
 
@@ -37,7 +39,7 @@ Customers sorted into Champions, Loyal, Promising, At Risk and Needs Attention.
 ![RFM tiers](rfm-tiers.png.png)
 
 ### Customer Lookup
-See where a single customer sits compared with their segment and the overall average.
+Compares one customer with their segment and the overall average
 
 ![Customer lookup](customer-lookup.png.jpeg)
 
@@ -66,14 +68,13 @@ Public Marketing Analytics dataset from Kaggle (ifood_df.csv), 2,205 customers.
 ## Key insights
 1. Premium Big Spenders are 30.9% of customers but about 70% of total spend (average spend 1,378 vs 81 for the lowest segment).
 2. Low-Engagement Shoppers are the largest group (42.4%) but contribute only about 6% of spend.
-3. Deal Seekers (26.7%) make 3.5 deal purchases on average, almost double the other segments (1.9), and contribute about 24% of spend.
-4. Premium Big Spenders buy at full price more than Deal Seekers, so blanket discounts would cut margin with little gain.
 
 ## Recommendations
 | Segment | Action |
 |---|---|
 | Premium Big Spenders | Loyalty perks, early access, premium bundles. Avoid discount-led offers. |
-| Deal Seekers | Time-limited offers and bundles with a minimum basket size. Track margin. |
+| Value-Driven Spenders | Use bundles and targeted discounts to protect spend. |
+| Frequent Light Spenders | Encourage bigger baskets with bundles and minimum-spend offers. |
 | Low-Engagement Shoppers | Low-cost reminders and first-purchase incentives with a capped budget. |
 
 ## Tech stack
@@ -85,3 +86,7 @@ Python, Streamlit, scikit-learn, Plotly, Gemini API
 
 ## Note
 Spend and Income are shown in dataset units because the source does not state a currency. The Gemini persona feature needs your own free API key, entered in the sidebar.
+
+## Feedback welcome
+
+I am an MBA graduate with a marketing focus, building this as part of my upskilling in AI and analytics, with no IT background. If you work in marketing analytics, CRM, data or AI, please try SegmentIQ and tell me what to improve. All kinds of feedback are welcome.
